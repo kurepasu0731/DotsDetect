@@ -6,8 +6,15 @@
 
 #include <atltime.h>
 
-#define CAMERA_WIDTH 1280
-#define CAMERA_HEIGHT 720
+#include<fstream>
+#include<iostream>
+#include<string>
+#include<sstream> //文字ストリーム
+
+
+
+#define CAMERA_WIDTH 1920
+#define CAMERA_HEIGHT 1080
 
 #define DOT_SIZE 150
 #define A_THRESH_VAL -5
@@ -100,6 +107,36 @@ bool init_v0(cv::Mat &src)
 	return k;
 }
 
+bool loadDots(std::vector<cv::Point2f> &corners)
+{
+	std::string filename = "dots.csv";
+
+    //ファイルの読み込み
+    std::ifstream ifs(filename);
+    if(!ifs){
+        return 0;
+    }
+
+    //csvファイルを1行ずつ読み込む
+    std::string str;
+    while(std::getline(ifs,str)){
+        std::string token;
+        std::istringstream stream(str);
+
+		//x座標
+		std::getline(stream,token,',');
+		int x = std::stoi(token);
+		//y座標
+		std::getline(stream,token,',');
+		int y = std::stoi(token);
+
+		corners.emplace_back(cv::Point2f(x, y));
+
+	}
+	return true;
+}
+
+
 int main(int argc, char** argv)
 {
     cv::VideoCapture cap(0);
@@ -116,14 +153,27 @@ int main(int argc, char** argv)
 
     cv::waitKey(cycle);
 
+	std::vector<cv::Point2f> dots;
+	loadDots(dots);
+
+	for(int i = 0; i < dots.size(); i++)
+	{
+		std::cout << "[" << i << "]: " << dots[i] << std::endl;
+	}
+
     while (1) {
+
         cv::Mat frame;
         cap >> frame;
 
 		cv::Mat currFrameGray;
         cv::cvtColor(frame, currFrameGray, CV_BGR2GRAY);
 
+		cTimeStart = CFileTime::GetCurrentTime();
 		init_v0(currFrameGray);
+		cTimeEnd = CFileTime::GetCurrentTime();           // 現在時刻
+		cTimeSpan = cTimeEnd - cTimeStart;
+		std::cout << cTimeSpan.GetTimeSpan()/10000 << "[ms]" << std::endl;
 
 		if(cv::waitKey(32) == 27) break;
 
