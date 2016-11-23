@@ -3,6 +3,7 @@
 #define NOMINMAX
 #include <Windows.h>
 #include <opencv2\opencv.hpp>
+#include <boost/thread/thread.hpp>
 
 #include <atltime.h>
 
@@ -11,14 +12,17 @@
 #include<string>
 #include<sstream> //文字ストリーム
 
+#include "criticalSection.h"
+#include "WebCamera.h"
 
+#define CAMERA_WIDTH 1280
+#define CAMERA_HEIGHT 720
 
-#define CAMERA_WIDTH 1920
-#define CAMERA_HEIGHT 1080
+#define RESIZESCALE 0.5
 
 #define DOT_SIZE 150
 #define A_THRESH_VAL -5
-#define DOT_THRESH_VAL_MIN 100  // ドットノイズ弾き
+#define DOT_THRESH_VAL_MIN 20  // ドットノイズ弾き
 #define DOT_THRESH_VAL_MAX 500 // エッジノイズ弾き
 
 void calCoG_dot_v0(cv::Mat &src, cv::Point& sum, int& cnt, cv::Point& min, cv::Point& max, cv::Point p) 
@@ -32,32 +36,42 @@ void calCoG_dot_v0(cv::Mat &src, cv::Point& sum, int& cnt, cv::Point& min, cv::P
 		if (p.y>max.y) max.y = p.y;
 
 		if (p.x - 1 >= 0) calCoG_dot_v0(src, sum, cnt, min, max, cv::Point(p.x-1, p.y));
-		if (p.x + 1 < CAMERA_WIDTH) calCoG_dot_v0(src, sum, cnt, min, max, cv::Point(p.x + 1, p.y));
+		if (p.x + 1 < src.cols) calCoG_dot_v0(src, sum, cnt, min, max, cv::Point(p.x + 1, p.y));
 		if (p.y - 1 >= 0) calCoG_dot_v0(src, sum, cnt, min, max, cv::Point(p.x, p.y - 1));
-		if (p.y + 1 < CAMERA_HEIGHT) calCoG_dot_v0(src, sum, cnt, min, max, cv::Point(p.x, p.y + 1));
+		if (p.y + 1 < src.rows) calCoG_dot_v0(src, sum, cnt, min, max, cv::Point(p.x, p.y + 1));
 	}
 }
 
 bool init_v0(cv::Mat &src) 
 {
 	cv::Mat origSrc = src.clone();
+	cv::Mat resized;
+	cv::resize(src, resized, cv::Size(), RESIZESCALE, RESIZESCALE);
+
 	//適応的閾値処理
-	cv::adaptiveThreshold(src, src, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 7, A_THRESH_VAL);
+	cv::adaptiveThreshold(resized, resized, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 7, A_THRESH_VAL);
+	//膨張処理
+	cv::dilate(src, src, cv::Mat::ones(10, 10, CV_8U));
+	//cv::erode(src, src, cv::Mat());
+	//cv::morphologyEx(src, src, cv::MORPH_OPEN, cv::Mat());
 	//普通の二値化
 	//cv::threshold(src, src, 150, 255, cv::THRESH_BINARY);
-	cv::Mat ptsImg = cv::Mat::zeros(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC3);
-	cv::cvtColor(src, ptsImg, CV_GRAY2BGR);
+	cv::Mat ptsImg = cv::Mat::zeros( CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC3); //原寸大表示用
+	cv::resize(resized, ptsImg, cv::Size(), 1/RESIZESCALE, 1/RESIZESCALE);
+	cv::cvtColor(ptsImg, ptsImg, CV_GRAY2BGR);
+
+	//cv::imshow("resized", resized);
 
 	cv::Point sum, min, max, p;
 	int cnt;
 	std::vector<cv::Point> dots;
-	for (int i = 0; i < CAMERA_HEIGHT; i++) {
-		for (int j = 0; j < CAMERA_WIDTH; j++) {
-			if (src.at<uchar>(i, j)) {
+	for (int i = 0; i < resized.rows; i++) {
+		for (int j = 0; j < resized.cols; j++) {
+			if (resized.at<uchar>(i, j)) {
 				sum = cv::Point(0, 0); cnt = 0; min = cv::Point(j, i); max = cv::Point(j, i);
-				calCoG_dot_v0(src, sum, cnt, min, max, cv::Point(j, i));
+				calCoG_dot_v0(resized, sum, cnt, min, max, cv::Point(j, i));
 				if (cnt>DOT_THRESH_VAL_MIN && max.x - min.x < DOT_THRESH_VAL_MAX && max.y - min.y < DOT_THRESH_VAL_MAX) {
-					dots.push_back(cv::Point(sum.x / cnt, sum.y / cnt));
+					dots.push_back(cv::Point((int)((float)(sum.x / cnt) / RESIZESCALE + 0.5), (int)((float)(sum.y / cnt) / RESIZESCALE + 0.5)));
 				}
 			}
 		}
@@ -99,7 +113,7 @@ bool init_v0(cv::Mat &src)
 
 	cv::Mat resize_src, resize_pts;
 	cv::resize(origSrc, resize_src, cv::Size(), 0.5, 0.5);
-	cv::resize(ptsImg, resize_pts, cv::Size(), 0.5, 0.5);
+	cv::resize(ptsImg, resize_pts, cv::Size(), 1.0, 1.0);
 
 	cv::imshow("src", resize_src);
 	cv::imshow("result", resize_pts);
@@ -139,10 +153,14 @@ bool loadDots(std::vector<cv::Point2f> &corners)
 
 int main(int argc, char** argv)
 {
-    cv::VideoCapture cap(0);
-	cap.set(CV_CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH);
-	cap.set(CV_CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT);
-	cap.set(CV_CAP_PROP_FPS, 30);
+
+	//! スレッド間の共有クラス
+	boost::shared_ptr<criticalSection> critical_section = boost::shared_ptr<criticalSection> (new criticalSection);
+
+	WebCamera cam(0, CAMERA_WIDTH, CAMERA_HEIGHT);
+	cam.init();
+
+	cam.start();
 
     const int cycle = 30;
 
@@ -163,8 +181,17 @@ int main(int argc, char** argv)
 
     while (1) {
 
-        cv::Mat frame;
-        cap >> frame;
+		//cv::Mat frame = critical_section->getImage();
+		//cv::Mat frame(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC3, critical_section->getImage_data());
+		//if(frame.data != NULL)
+		//{
+		//	cv::imshow("frame", frame);
+		//}
+
+		//std::string str = critical_section->getTest();
+		//std::cout << str << std::endl;
+
+		cv::Mat frame = cam.getImage();
 
 		cv::Mat currFrameGray;
         cv::cvtColor(frame, currFrameGray, CV_BGR2GRAY);
@@ -175,8 +202,12 @@ int main(int argc, char** argv)
 		cTimeSpan = cTimeEnd - cTimeStart;
 		std::cout << cTimeSpan.GetTimeSpan()/10000 << "[ms]" << std::endl;
 
+
 		if(cv::waitKey(32) == 27) break;
 
 	}
+	cam.stop();
+	cam.release();
+
     return 0;
 }
