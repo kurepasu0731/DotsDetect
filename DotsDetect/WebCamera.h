@@ -14,6 +14,8 @@ public:
     cv::VideoCapture cap;
 	//ÅV‰æ‘œ
 	cv::Mat fc2Mat;
+	//gray‰æ‘œ
+	cv::Mat gray;
 
 	WebCamera(){
 		width = 0;
@@ -74,6 +76,12 @@ public:
 		return fc2Mat;
 	}
 
+	cv::Mat getImageGray()
+	{
+		return gray;
+	}
+
+
 	~WebCamera(){};
 
 protected:
@@ -87,6 +95,8 @@ protected:
 		{
 			boost::unique_lock<boost::mutex> lock(mutex);
 			queryFrame();
+			//cv::cvtColor(fc2Mat, gray, CV_BGR2GRAY);
+
 			//critical_section->setImage(fc2Mat);
 			lock.unlock();
 		}

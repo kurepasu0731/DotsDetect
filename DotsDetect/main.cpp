@@ -51,7 +51,7 @@ bool init_v0(cv::Mat &src)
 	//適応的閾値処理
 	cv::adaptiveThreshold(resized, resized, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 7, A_THRESH_VAL);
 	//膨張処理
-	cv::dilate(src, src, cv::Mat::ones(10, 10, CV_8U));
+	cv::dilate(resized, resized, cv::Mat());
 	//cv::erode(src, src, cv::Mat());
 	//cv::morphologyEx(src, src, cv::MORPH_OPEN, cv::Mat());
 	//普通の二値化
@@ -198,6 +198,10 @@ int main(int argc, char** argv)
 
 		cTimeStart = CFileTime::GetCurrentTime();
 		init_v0(currFrameGray);
+		//if(frame.data != NULL)
+		//{
+		//	init_v0(frame);
+		//}
 		cTimeEnd = CFileTime::GetCurrentTime();           // 現在時刻
 		cTimeSpan = cTimeEnd - cTimeStart;
 		std::cout << cTimeSpan.GetTimeSpan()/10000 << "[ms]" << std::endl;
