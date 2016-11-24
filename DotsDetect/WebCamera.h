@@ -37,7 +37,7 @@ public:
 		cap.set(CV_CAP_PROP_FPS, 30);
 
 		// スレッド間共有クラス
-		//critical_section = boost::shared_ptr<criticalSection> (new criticalSection);
+		critical_section = boost::shared_ptr<criticalSection> (new criticalSection);
 	}
 
 	void start()
@@ -93,12 +93,14 @@ protected:
 	{
 		while(!quit)
 		{
+			boost::shared_ptr<imgSrc> imgsrc = boost::shared_ptr<imgSrc>(new imgSrc);
 			boost::unique_lock<boost::mutex> lock(mutex);
 			queryFrame();
 			//cv::cvtColor(fc2Mat, gray, CV_BGR2GRAY);
-
-			//critical_section->setImage(fc2Mat);
 			lock.unlock();
+			//critical_section->setImage(fc2Mat);
+			imgsrc->image = fc2Mat;
+			critical_section->setImageSource(imgsrc);
 		}
 	}
 

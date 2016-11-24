@@ -157,6 +157,10 @@ int main(int argc, char** argv)
 	//! スレッド間の共有クラス
 	boost::shared_ptr<criticalSection> critical_section = boost::shared_ptr<criticalSection> (new criticalSection);
 
+	boost::shared_ptr<imgSrc> imgsrc = boost::shared_ptr<imgSrc>(new imgSrc);
+	imgsrc->image = cv::Mat::zeros(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC3);
+
+
 	WebCamera cam(0, CAMERA_WIDTH, CAMERA_HEIGHT);
 	cam.init();
 
@@ -182,29 +186,33 @@ int main(int argc, char** argv)
     while (1) {
 
 		//cv::Mat frame = critical_section->getImage();
-		//cv::Mat frame(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC3, critical_section->getImage_data());
 		//if(frame.data != NULL)
 		//{
 		//	cv::imshow("frame", frame);
 		//}
+		if(critical_section->getImageSource(imgsrc))
+		{
+			cv::imshow("frame", imgsrc->image);
+		}
+
 
 		//std::string str = critical_section->getTest();
 		//std::cout << str << std::endl;
 
-		cv::Mat frame = cam.getImage();
+		//cv::Mat frame = cam.getImage();
 
-		cv::Mat currFrameGray;
-        cv::cvtColor(frame, currFrameGray, CV_BGR2GRAY);
+		//cv::Mat currFrameGray;
+  //      cv::cvtColor(frame, currFrameGray, CV_BGR2GRAY);
 
-		cTimeStart = CFileTime::GetCurrentTime();
-		init_v0(currFrameGray);
-		//if(frame.data != NULL)
-		//{
-		//	init_v0(frame);
-		//}
-		cTimeEnd = CFileTime::GetCurrentTime();           // 現在時刻
-		cTimeSpan = cTimeEnd - cTimeStart;
-		std::cout << cTimeSpan.GetTimeSpan()/10000 << "[ms]" << std::endl;
+		//cTimeStart = CFileTime::GetCurrentTime();
+		//init_v0(currFrameGray);
+		////if(frame.data != NULL)
+		////{
+		////	init_v0(frame);
+		////}
+		//cTimeEnd = CFileTime::GetCurrentTime();           // 現在時刻
+		//cTimeSpan = cTimeEnd - cTimeStart;
+		//std::cout << cTimeSpan.GetTimeSpan()/10000 << "[ms]" << std::endl;
 
 
 		if(cv::waitKey(32) == 27) break;
