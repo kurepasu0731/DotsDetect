@@ -41,7 +41,7 @@ public:
 	{
 		boost::upgrade_lock<boost::shared_mutex> up_lock(image_mutex);
 		boost::upgrade_to_unique_lock<boost::shared_mutex> write_lock(up_lock);
-		//if(_src->image.data != NULL)
+		if(!_src->image.empty())
 		{
 			imgsrc = _src;
 		}

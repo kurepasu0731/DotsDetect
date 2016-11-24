@@ -161,7 +161,7 @@ int main(int argc, char** argv)
 	imgsrc->image = cv::Mat::zeros(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC3);
 
 
-	WebCamera cam(0, CAMERA_WIDTH, CAMERA_HEIGHT);
+	WebCamera cam(0, CAMERA_WIDTH, CAMERA_HEIGHT, critical_section);
 	cam.init();
 
 	cam.start();

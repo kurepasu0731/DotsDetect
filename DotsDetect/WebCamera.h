@@ -23,11 +23,12 @@ public:
 		cap = cv::VideoCapture(0);
 	};
 
-	WebCamera(int device, int _width, int _height)
+	WebCamera(int device, int _width, int _height, boost::shared_ptr<criticalSection> _cs)
 	{
 		width = _width;
 		height = _height;
 		cap = cv::VideoCapture(device);
+		critical_section = _cs;
 	};
 
 	void init()
@@ -37,7 +38,7 @@ public:
 		cap.set(CV_CAP_PROP_FPS, 30);
 
 		// スレッド間共有クラス
-		critical_section = boost::shared_ptr<criticalSection> (new criticalSection);
+		//critical_section = boost::shared_ptr<criticalSection> (new criticalSection);
 	}
 
 	void start()
